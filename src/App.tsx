@@ -76,24 +76,42 @@ const App = () => {
 
   const renderPlaylist = ({ item }) => (
     <View style={styles.resultItem}>
-      <View style={styles.itemInfo}>
-        <Text style={[styles.resultText, textColor]}>{item.title}</Text>
-        <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {item.videoCount} items</Text>
+      <View style={styles.playlistInfo}>
+        <View style={styles.itemInfo}>
+          <Text style={[styles.resultText, textColor]}>{item.title}</Text>
+          <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {item.videoCount} items</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.button, get_accentColor()]}
+          onPress={() => handleItemsFromPlaylistSearch(item.playlistId)}
+        >
+          {selectedPlaylistID === item.playlistId && <Text style={[styles.buttonText, textColor]}>⯅</Text>}
+          {selectedPlaylistID !== item.playlistId && <Text style={[styles.buttonText, textColor]}>⯆</Text>}
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={[styles.button, get_accentColor()]}
-        onPress={() => handleItemsFromPlaylistSearch(item.playlistId)}
-      >
-        <Text style={[styles.buttonText, textColor]}>⯆</Text>
-      </TouchableOpacity>
+      {selectedPlaylistID === item.playlistId && (
+        <View style={styles.itemsInfo}>
+          <FlatList
+            data={itemsFromPlaylist}
+            renderItem={renderVideo}
+            ItemSeparatorComponent={() => <View style={styles.itemDivider} />}
+          />
+        </View>
+      )}
     </View>
   );
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  };
 
   const renderVideo = ({ item }) => (
     <View style={styles.resultItem}>
       <View style={styles.itemInfo}>
         <Text style={[styles.resultText, textColor]}>{item.title}</Text>
-        <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {item.lengthSeconds} items</Text>
+        <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {formatTime(item.lengthSeconds)}</Text>
       </View>
     </View>
   );
@@ -171,6 +189,12 @@ const styles = StyleSheet.create({
     flexGrow: 1
   },
   resultItem: {
+    borderRadius: 5,
+  },
+  item: {
+    borderRadius: 5,
+  },
+  playlistInfo: {
     alignSelf: 'center',
     width: '98%',
     marginBottom: 10,
@@ -179,8 +203,17 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     flexDirection: 'row',
   },
+  itemsInfo: {
+    alignSelf: 'center',
+    width: '98%',
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#555',
+    borderRadius: 5,
+  },
   itemInfo: {
-    marginRight: 10
+    marginRight: 10,
+    width: '100%',
   },
   resultText: {
     fontSize: 16,
@@ -199,6 +232,11 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     backgroundColor: 'gray',
+  },
+  itemDivider: {
+    height: 1,
+    backgroundColor: 'gray',
+    marginVertical: 10,
   },
   bottomBar: {
     height: 20,
