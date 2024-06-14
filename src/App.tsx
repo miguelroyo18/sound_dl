@@ -8,6 +8,7 @@ import {
   View,
   ActivityIndicator,
   Alert,
+  Image,
   FlatList,
   TouchableOpacity,
   useColorScheme,
@@ -27,7 +28,7 @@ const App = () => {
   };
 
   const get_accentColor = () => {
-    return { backgroundColor: PlatformColor('SystemAccentColor')};
+    return { backgroundColor: PlatformColor('SystemAccentColorLight1')};
   };
 
   const [searchResults, updateSearchResults] = useState([]);
@@ -35,6 +36,7 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedPlaylistID, setSelectedPlaylistID] = useState('');
+  const [downloadingStatus, setDownloadingStatus] = useState(null);
 
   const handlePlaylistSearch = async () => {
     updateSearchResults([]);
@@ -74,20 +76,71 @@ const App = () => {
     }
   };
 
+  const downloadPlaylist = async (playlistID) => {
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ link: `https://youtube.com/playlist?list=${playlistID}`}),
+      });
+    } catch (error) {
+      console.error('Error downloading playlist:', error);
+    }
+  };
+
+  const fetchDownloadingStatus = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/get_status');
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const status = await response.json();
+      if (status && status.status === 'downloading' && status.title) {
+        setDownloadingStatus(status);
+      } else {
+        setDownloadingStatus(null);
+      }
+    } catch (error) {
+      console.error('Error fetching downloading status:', error);
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDownloadingStatus();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const renderPlaylist = ({ item }) => (
     <View style={styles.resultItem}>
       <View style={styles.playlistInfo}>
+        <Image
+          source={{ uri: item.playlistThumbnail }}
+          style={styles.thumbnail}
+        />
         <View style={styles.itemInfo}>
           <Text style={[styles.resultText, textColor]}>{item.title}</Text>
           <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {item.videoCount} items</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.button, get_accentColor()]}
-          onPress={() => handleItemsFromPlaylistSearch(item.playlistId)}
-        >
-          {selectedPlaylistID === item.playlistId && <Text style={[styles.buttonText, textColor]}>⯅</Text>}
-          {selectedPlaylistID !== item.playlistId && <Text style={[styles.buttonText, textColor]}>⯆</Text>}
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, get_accentColor()]}
+            onPress={() => handleItemsFromPlaylistSearch(item.playlistId)}
+          >
+            {selectedPlaylistID === item.playlistId && <Text style={[styles.buttonText, textColor]}>⯅</Text>}
+            {selectedPlaylistID !== item.playlistId && <Text style={[styles.buttonText, textColor]}>⯆</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, get_accentColor()]}
+            onPress={() => downloadPlaylist(item.playlistId)}
+          >
+            <Text style={[styles.buttonText, textColor]}>Download</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {selectedPlaylistID === item.playlistId && (
         <View style={styles.itemsInfo}>
@@ -109,7 +162,7 @@ const App = () => {
 
   const renderVideo = ({ item }) => (
     <View style={styles.resultItem}>
-      <View style={styles.itemInfo}>
+      <View style={styles.itemsText}>
         <Text style={[styles.resultText, textColor]}>{item.title}</Text>
         <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {formatTime(item.lengthSeconds)}</Text>
       </View>
@@ -133,6 +186,11 @@ const App = () => {
             onSubmitEditing={handlePlaylistSearch}
           />
           {loading && <ActivityIndicator style={styles.loadingIndicator} size="large" color={textColor.color} />}
+          {searchResults.length === 0 && !loading && (
+            <View style={styles.messageContainer}>
+              <Text style={[styles.messageText, textColor]}>No searches yet.</Text>
+            </View>
+          )}
           <FlatList
             data={searchResults}
             renderItem={renderPlaylist}
@@ -143,7 +201,20 @@ const App = () => {
         </View>
         <View style={styles.divider} />
         <View style={[styles.rightColumn, backgroundStyle]}>
-          <Text style={[styles.content, textColor]}>Downloads</Text>
+          {downloadingStatus && (
+            <View style={styles.downloadingStatus}>
+              <Image
+                source={{ uri: downloadingStatus.thumbnail }}
+                style={styles.downloadingThumbnail}
+              />
+              <View style={styles.downloadingInfo}>
+                <Text style={[styles.resultText, textColor]}>{downloadingStatus.title}</Text>
+                <Text style={[styles.bottomBarText, textColor]}>Downloading...</Text>
+                <Text style={[styles.bottomBarText, textColor]}>{(downloadingStatus.downloaded_bytes / downloadingStatus.total_bytes * 100).toFixed(2)}% complete</Text>
+                <Text style={[styles.bottomBarText, textColor]}>Speed: {downloadingStatus.speed.toFixed(2)} bytes/s</Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
       <View style={styles.bottomBar}>
@@ -170,6 +241,8 @@ const styles = StyleSheet.create({
   rightColumn: {
     flex: 2,
     padding: 10,
+    marginTop: 10,
+    gap: 5
   },
   searchBar: {
     height: 35,
@@ -214,9 +287,20 @@ const styles = StyleSheet.create({
   itemInfo: {
     marginRight: 10,
     width: '100%',
+    marginTop: 10,
+    marginLeft: 5
   },
   resultText: {
-    fontSize: 16,
+    fontSize: 15,
+  },
+  itemsText: {
+    fontSize: 15,
+  },
+  thumbnail: {
+    width: 60,
+    height: 60,
+    marginRight: 10,
+    borderRadius: 5,
   },
   button: {
     paddingVertical: 8,
@@ -224,10 +308,17 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginStart: 'auto',
     marginLeft: 10,
+    marginTop: 13,
+    marginRight: 5,
+    height: 35
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginStart: 'auto',
   },
   buttonText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 12,
   },
   divider: {
     width: 1,
@@ -255,6 +346,34 @@ const styles = StyleSheet.create({
     top: '50%',
     left: '50%',
     transform: [{ translateX: -25 }, { translateY: -25 }],
+  },
+  messageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageText: {
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  downloadingStatus: {
+    backgroundColor: '#555',
+    flex: 1,
+    borderRadius: 5,
+    padding: 10,
+    marginLeft: 10,
+    marginRight: 10
+  },
+  downloadingInfo: {
+    marginLeft: 10,
+    flexShrink: 1,
+  },
+  downloadingThumbnail: {
+    marginTop: 50,
+    alignSelf: 'center',
+    width: '38%',
+    height: '25%',
+    borderRadius: 5,
   },
 });
 

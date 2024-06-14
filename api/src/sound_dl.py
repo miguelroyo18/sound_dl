@@ -12,7 +12,6 @@ CORS(app)
 def get_status():
     try:
         status = downloader.fetch_status()
-        print(status)
         return jsonify(status)
     except request.RequestException as e:
         return jsonify({"error": str(e)}), 500
@@ -20,7 +19,8 @@ def get_status():
 
 @app.route('/api/download', methods=['POST'])
 def download():
-    link = request.args.get('link', '')
+    data = request.get_json()
+    link = data.get('link', '')
     downloader.download(link)
     return jsonify({"message": "Download started"})
 
