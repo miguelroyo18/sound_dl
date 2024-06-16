@@ -7,14 +7,13 @@ import {
   TextInput,
   View,
   ActivityIndicator,
-  Alert,
   Image,
   FlatList,
   TouchableOpacity,
   useColorScheme,
   PlatformColor,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import { ProgressBar } from 'react-native-paper';
 
 const App = () => {
   const isDarkMode = useColorScheme() === 'dark';
@@ -23,12 +22,20 @@ const App = () => {
     backgroundColor: isDarkMode ? '#333' : '#FFF',
   };
 
+  const backgroundCol = {
+    backgroundColor: isDarkMode ? '#555' : '#F5F5F5'
+  };
+
   const textColor = {
     color: isDarkMode ? '#FFF' : '#000',
   };
 
   const get_accentColor = () => {
-    return { backgroundColor: PlatformColor('SystemAccentColorLight1')};
+    if (isDarkMode) {
+      return { backgroundColor: PlatformColor('SystemAccentColorLight1')};
+    } else {
+      return { backgroundColor: PlatformColor('SystemAccentColorLight3')};
+    }
   };
 
   const [searchResults, updateSearchResults] = useState([]);
@@ -37,6 +44,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [selectedPlaylistID, setSelectedPlaylistID] = useState('');
   const [downloadingStatus, setDownloadingStatus] = useState(null);
+
 
   const handlePlaylistSearch = async () => {
     updateSearchResults([]);
@@ -115,15 +123,31 @@ const App = () => {
     return () => clearInterval(interval);
   }, []);
 
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  };
+
+  const formatBytes = (bytes) => {
+    const sizes = ['b', 'KiB', 'MiB', 'GiB', 'TiB'];
+  
+    if (bytes === 0) return '0 b';
+    const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+    return Math.round(100 * (bytes / Math.pow(1024, i))) / 100 + ' ' + sizes[i];
+  };
+
+
   const renderPlaylist = ({ item }) => (
-    <View style={styles.resultItem}>
-      <View style={styles.playlistInfo}>
+    <View style={styles.playlists}>
+      <View style={[styles.playlistInfo, backgroundCol]}>
         <Image
           source={{ uri: item.playlistThumbnail }}
           style={styles.thumbnail}
         />
-        <View style={styles.itemInfo}>
-          <Text style={[styles.resultText, textColor]}>{item.title}</Text>
+        <View style={styles.trackInfo}>
+          <Text style={[styles.tittleText, textColor]}>{item.title}</Text>
           <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {item.videoCount} items</Text>
         </View>
         <View style={styles.buttonContainer}>
@@ -143,27 +167,21 @@ const App = () => {
         </View>
       </View>
       {selectedPlaylistID === item.playlistId && (
-        <View style={styles.itemsInfo}>
+        <View style={[styles.tracksContainer, backgroundCol]}>
           <FlatList
             data={itemsFromPlaylist}
             renderItem={renderVideo}
-            ItemSeparatorComponent={() => <View style={styles.itemDivider} />}
+            ItemSeparatorComponent={() => <View style={styles.tracksDivider} />}
           />
         </View>
       )}
     </View>
   );
 
-  const formatTime = (seconds) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-  };
-
   const renderVideo = ({ item }) => (
-    <View style={styles.resultItem}>
-      <View style={styles.itemsText}>
-        <Text style={[styles.resultText, textColor]}>{item.title}</Text>
+    <View style={styles.playlists}>
+      <View style={styles.tittleText}>
+        <Text style={[styles.tittleText, textColor]}>{item.title}</Text>
         <Text style={[styles.bottomBarText, textColor]}>{item.author} &#8226; {formatTime(item.lengthSeconds)}</Text>
       </View>
     </View>
@@ -201,17 +219,31 @@ const App = () => {
         </View>
         <View style={styles.divider} />
         <View style={[styles.rightColumn, backgroundStyle]}>
-          {downloadingStatus && (
-            <View style={styles.downloadingStatus}>
-              <Image
-                source={{ uri: downloadingStatus.thumbnail }}
-                style={styles.downloadingThumbnail}
-              />
+        {downloadingStatus ? (
+            <View style={[styles.downloadingStatusContainer, backgroundCol]}>
+              <Image source={{ uri: downloadingStatus.thumbnail }} style={styles.downloadingThumbnail} />
+              <View style={styles.tracksDivider} />
               <View style={styles.downloadingInfo}>
-                <Text style={[styles.resultText, textColor]}>{downloadingStatus.title}</Text>
+                <Text style={[styles.tittleText, textColor]}>{downloadingStatus.title}</Text>
+                <ProgressBar
+                  progress={(downloadingStatus.downloaded_bytes / downloadingStatus.total_bytes) * 10000}
+                  width={null}
+                  color={PlatformColor('SystemAccentColorLight2')}
+                  style={styles.progressBar}
+                />
                 <Text style={[styles.bottomBarText, textColor]}>Downloading...</Text>
-                <Text style={[styles.bottomBarText, textColor]}>{(downloadingStatus.downloaded_bytes / downloadingStatus.total_bytes * 100).toFixed(2)}% complete</Text>
-                <Text style={[styles.bottomBarText, textColor]}>Speed: {downloadingStatus.speed.toFixed(2)} bytes/s</Text>
+                <Text style={[styles.bottomBarText, textColor]}>
+                  {(downloadingStatus.downloaded_bytes / downloadingStatus.total_bytes * 100).toFixed(2)}% complete at {formatBytes(downloadingStatus.speed)}/s
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.downloadingStatusContainer, backgroundCol]}>
+              <Image source={{ uri: 'https://via.placeholder.com/750?text=No+current+downloads' }} style={styles.downloadingThumbnail} />
+              <View style={styles.tracksDivider} />
+              <View style={styles.downloadingInfo}>
+                <Text style={[styles.tittleText, textColor]}>No downloads</Text>
+                <Text style={[styles.bottomBarText, textColor]}>There are currently no downloads in progress.</Text>
               </View>
             </View>
           )}
@@ -253,18 +285,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignSelf: 'center'
   },
-  content: {
-    flex: 1,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-  },
   resultsContainer: {
     flexGrow: 1
   },
-  resultItem: {
-    borderRadius: 5,
-  },
-  item: {
+  playlists: {
     borderRadius: 5,
   },
   playlistInfo: {
@@ -272,28 +296,23 @@ const styles = StyleSheet.create({
     width: '98%',
     marginBottom: 10,
     padding: 10,
-    backgroundColor: '#555',
     borderRadius: 5,
     flexDirection: 'row',
   },
-  itemsInfo: {
+  tracksContainer: {
     alignSelf: 'center',
     width: '98%',
     marginBottom: 10,
     padding: 10,
-    backgroundColor: '#555',
     borderRadius: 5,
   },
-  itemInfo: {
+  trackInfo: {
     marginRight: 10,
     width: '100%',
     marginTop: 10,
     marginLeft: 5
   },
-  resultText: {
-    fontSize: 15,
-  },
-  itemsText: {
+  tittleText: {
     fontSize: 15,
   },
   thumbnail: {
@@ -324,22 +343,10 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: 'gray',
   },
-  itemDivider: {
+  tracksDivider: {
     height: 1,
     backgroundColor: 'gray',
     marginVertical: 10,
-  },
-  bottomBar: {
-    height: 20,
-    justifyContent: 'center',
-    paddingLeft: 5,
-    alignItems: 'flex-start',
-    borderColor: 'grey',
-    borderTopWidth: 0.5 
-  },
-  bottomBarText: {
-    fontSize: 12,
-    color: 'grey'
   },
   loadingIndicator: {
     position: 'absolute',
@@ -356,24 +363,42 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
   },
-  downloadingStatus: {
-    backgroundColor: '#555',
+  downloadingStatusContainer: {
     flex: 1,
     borderRadius: 5,
     padding: 10,
-    marginLeft: 10,
-    marginRight: 10
+    paddingHorizontal: 20,
+    width: '97%',
+    alignSelf: 'center'
   },
   downloadingInfo: {
-    marginLeft: 10,
+    marginTop: 20,
     flexShrink: 1,
   },
   downloadingThumbnail: {
-    marginTop: 50,
+    marginTop: 30,
+    marginBottom: 30,
     alignSelf: 'center',
     width: '38%',
     height: '25%',
     borderRadius: 5,
+  },
+  progressBar: {
+    marginBottom: 5,
+    marginTop: 15,
+    borderRadius: 10,
+  },
+  bottomBar: {
+    height: 20,
+    justifyContent: 'center',
+    paddingLeft: 5,
+    alignItems: 'flex-start',
+    borderColor: 'grey',
+    borderTopWidth: 0.5 
+  },
+  bottomBarText: {
+    fontSize: 12,
+    color: 'grey'
   },
 });
 
