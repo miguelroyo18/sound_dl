@@ -16,9 +16,13 @@
     "@mui/icons-material": "^5.15.19",
     "@mui/joy": "^5.0.0-beta.36",
     "@mui/material": "^5.15.19",
+    "child_process": "^1.0.2",
+    "path": "^0.12.7",
     "react": "18.2.0",
     "react-dom": "^18.2.0",
     "react-native": "0.74.2",
+    "react-native-childprocess": "^0.1.4",
+    "react-native-fs": "^2.20.0",
     "react-native-paper": "^5.12.3",
     "react-native-vector-icons": "^10.1.0",
     "react-native-windows": "0.74.8"
